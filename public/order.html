@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Form Order AXP Fashion</title>
+</head>
+<body>
+  <h1>Form Pemesanan</h1>
+  <form id="orderForm">
+    <label>Nama:</label><br>
+    <input type="text" name="customer_name" required><br><br>
+
+    <label>Item:</label><br>
+    <input type="text" name="item" required><br><br>
+
+    <button type="submit">Kirim Pesanan</button>
+  </form>
+
+  <p id="statusMsg"></p>
+
+  <script>
+    const form = document.getElementById('orderForm');
+    const statusMsg = document.getElementById('statusMsg');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData.entries());
+
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      if (res.ok) {
+        statusMsg.textContent = 'Pesanan berhasil dikirim!';
+        form.reset();
+      } else {
+        statusMsg.textContent = 'Gagal mengirim pesanan.';
+      }
+    });
+  </script>
+</body>
+</html>
