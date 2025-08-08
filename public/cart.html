@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keranjang Belanja - AXPFashion</title>
+    <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="bg-slate-900">
+
+    <nav class="bg-slate-800/80 backdrop-blur-md sticky top-0 z-50 shadow-lg">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex-shrink-0">
+                    <a href="/product.html" class="text-white text-2xl font-bold">AXP<span class="text-sky-500">.</span></a>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="#" class="text-slate-300 hover:bg-slate-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Home</a>
+                        <a href="/product.html" class="text-slate-300 hover:bg-slate-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Products</a>
+                        <a href="#" class="text-slate-300 hover:bg-slate-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">About</a>
+                        <a href="/konfirmasi.html" class="text-slate-300 hover:bg-slate-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Konfirmasi</a>
+                    </div>
+                </div>
+                <div class="relative">
+                    <a href="/cart.html" class="text-slate-300 hover:text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                    </a>
+                    <span id="cart-badge" class="absolute -top-2 -right-2 bg-sky-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-white">Keranjang Belanja Anda</h1>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div id="cart-items-container" class="lg:col-span-2 bg-slate-800 rounded-xl shadow-lg p-6">
+                <p class="text-center text-slate-400">Keranjang Anda kosong.</p>
+            </div>
+
+            <div class="lg:col-span-1">
+                <div class="bg-slate-800 rounded-xl shadow-lg p-6 sticky top-24">
+                    <h2 class="text-xl font-semibold text-white border-b border-slate-700 pb-4 mb-4">Ringkasan Pesanan</h2>
+                    <div class="space-y-4">
+                        <div class="flex justify-between text-slate-300">
+                            <span>Subtotal</span>
+                            <span id="subtotal-price">Rp 0</span>
+                        </div>
+                        <div class="flex justify-between text-slate-300">
+                            <span>Biaya Pengiriman</span>
+                            <span>Akan dihitung</span>
+                        </div>
+                    </div>
+                    <div class="border-t border-slate-700 mt-4 pt-4">
+                        <div class="flex justify-between font-bold text-white text-lg">
+                            <span>Total</span>
+                            <span id="total-price">Rp 0</span>
+                        </div>
+                    </div>
+                    <a href="/checkout.html" class="block text-center w-full mt-6 bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 rounded-lg transition-colors">
+    Lanjut ke Checkout
+</a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const cartItemsContainer = document.getElementById('cart-items-container');
+            const subtotalPriceEl = document.getElementById('subtotal-price');
+            const totalPriceEl = document.getElementById('total-price');
+            const cartBadge = document.getElementById('cart-badge');
+
+            function formatRupiah(number) {
+                return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
+            }
+
+            function renderCart() {
+                const cart = JSON.parse(localStorage.getItem('axp_cart')) || [];
+                cartItemsContainer.innerHTML = ''; // Kosongkan kontainer
+
+                if (cart.length === 0) {
+                    cartItemsContainer.innerHTML = '<p class="text-center text-slate-400">Keranjang Anda kosong.</p>';
+                    updateCartSummary(0);
+                    updateCartBadge();
+                    return;
+                }
+
+                let subtotal = 0;
+
+                cart.forEach(item => {
+                    const itemTotal = item.price * item.quantity;
+                    subtotal += itemTotal;
+
+                    const cartItemHTML = `
+                        <div class="flex items-center border-b border-slate-700 py-4 last:border-b-0">
+                            <img src="${item.image}" alt="${item.name}" class="w-20 h-20 object-cover rounded-lg mr-4">
+                            <div class="flex-grow">
+                                <h3 class="font-semibold text-white">${item.name}</h3>
+                                <p class="text-sm text-slate-400">${formatRupiah(item.price)}</p>
+                            </div>
+                            <div class="flex items-center mx-4">
+                                <button data-id="${item.id}" class="quantity-change-btn decrease-btn px-2 py-1 bg-slate-700 rounded">-</button>
+                                <span class="px-4 font-medium">${item.quantity}</span>
+                                <button data-id="${item.id}" class="quantity-change-btn increase-btn px-2 py-1 bg-slate-700 rounded">+</button>
+                            </div>
+                            <div class="w-28 text-right font-semibold text-white">
+                                ${formatRupiah(itemTotal)}
+                            </div>
+                            <button data-id="${item.id}" class="remove-item-btn text-slate-500 hover:text-red-500 ml-4">&times;</button>
+                        </div>
+                    `;
+                    cartItemsContainer.innerHTML += cartItemHTML;
+                });
+
+                updateCartSummary(subtotal);
+                updateCartBadge();
+            }
+
+            function updateCartSummary(subtotal) {
+                subtotalPriceEl.textContent = formatRupiah(subtotal);
+                totalPriceEl.textContent = formatRupiah(subtotal); // Untuk saat ini total = subtotal
+            }
+            
+            function updateCartBadge() {
+                const cart = JSON.parse(localStorage.getItem('axp_cart')) || [];
+                const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+                cartBadge.textContent = totalItems;
+            }
+
+            function changeQuantity(productId, change) {
+                let cart = JSON.parse(localStorage.getItem('axp_cart')) || [];
+                const itemIndex = cart.findIndex(item => item.id === productId);
+
+                if (itemIndex > -1) {
+                    cart[itemIndex].quantity += change;
+                    if (cart[itemIndex].quantity <= 0) {
+                        // Jika kuantitas 0 atau kurang, hapus item
+                        cart.splice(itemIndex, 1);
+                    }
+                }
+                
+                localStorage.setItem('axp_cart', JSON.stringify(cart));
+                renderCart();
+            }
+            
+            function removeItem(productId) {
+                let cart = JSON.parse(localStorage.getItem('axp_cart')) || [];
+                cart = cart.filter(item => item.id !== productId);
+                localStorage.setItem('axp_cart', JSON.stringify(cart));
+                renderCart();
+            }
+
+            cartItemsContainer.addEventListener('click', (e) => {
+                const target = e.target;
+                const productId = parseInt(target.dataset.id, 10);
+
+                if (target.classList.contains('increase-btn')) {
+                    changeQuantity(productId, 1);
+                } else if (target.classList.contains('decrease-btn')) {
+                    changeQuantity(productId, -1);
+                } else if (target.classList.contains('remove-item-btn')) {
+                    removeItem(productId);
+                }
+            });
+
+            renderCart();
+        });
+    </script>
+</body>
+</html>
+

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Konfirmasi Pembayaran - AXPFashion</title>
+    <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="bg-slate-900 text-white flex items-center justify-center min-h-screen">
+
+    <div class="bg-slate-800 p-8 rounded-xl shadow-2xl w-full max-w-md">
+        <h1 class="text-3xl font-bold text-center mb-2">Konfirmasi Pembayaran</h1>
+        <p class="text-slate-400 text-center mb-6">Unggah bukti transfer Anda di sini.</p>
+        
+        <form id="confirmationForm">
+            <div class="mb-4">
+                <label for="order_id" class="block mb-2 text-sm font-medium text-slate-300">Nomor Pesanan (Order ID)</label>
+                <input type="text" id="order_id" name="order_id" placeholder="Contoh: 123" class="w-full p-3 bg-slate-700 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500" required>
+            </div>
+
+            <div class="mb-6">
+                <label for="payment_proof" class="block mb-2 text-sm font-medium text-slate-300">Bukti Transfer</label>
+                <input type="file" id="payment_proof" name="payment_proof" class="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-sky-50 file:text-sky-700 hover:file:bg-sky-100" required>
+                <p class="mt-1 text-xs text-slate-500">Format: JPG, PNG, atau PDF. Maksimal 5MB.</p>
+            </div>
+
+            <button type="submit" class="w-full p-3 bg-sky-600 hover:bg-sky-700 rounded-lg font-semibold transition-colors">Kirim Konfirmasi</button>
+        </form>
+
+        <p id="message" class="mt-4 text-center"></p>
+    </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('confirmationForm');
+        const messageEl = document.getElementById('message');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(form);
+            const submitButton = form.querySelector('button');
+
+            submitButton.disabled = true;
+            submitButton.textContent = 'Mengirim...';
+            messageEl.textContent = '';
+            messageEl.className = 'mt-4 text-center';
+
+            try {
+                // Nanti kita akan buat endpoint '/api/confirm-payment' ini
+                const response = await fetch('/api/confirm-payment', {
+                    method: 'POST',
+                    body: formData, // FormData otomatis mengatur header yang benar untuk file upload
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    messageEl.textContent = 'Konfirmasi berhasil dikirim! Terima kasih.';
+                    messageEl.classList.add('text-green-400');
+                    form.reset();
+                } else {
+                    throw new Error(result.error || 'Terjadi kesalahan.');
+                }
+
+            } catch (error) {
+                messageEl.textContent = error.message;
+                messageEl.classList.add('text-red-400');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Kirim Konfirmasi';
+            }
+        });
+    });
+  </script>
+
+</body>
+</html>

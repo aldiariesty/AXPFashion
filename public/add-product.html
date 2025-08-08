@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tambah Produk - Admin Panel</title>
+    <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="bg-slate-900 text-slate-200">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-white">Tambah Produk dari Supplier</h1>
+                <a href="/my-products.html" class="text-sky-400 hover:underline">← Kembali ke Daftar Produk Saya</a>
+            </div>
+            <a href="/logout" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                Logout
+            </a>
+        </header>
+
+        <section class="bg-slate-800 rounded-xl shadow-lg p-6 mb-8">
+            <form id="search-form" class="flex gap-4">
+                <input type="text" id="keyword-input" class="w-full p-3 bg-slate-700 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="Ketik nama produk (misal: 'scarf women')..." required>
+                <button type="submit" class="bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-6 rounded-lg transition-colors">Cari</button>
+            </form>
+        </section>
+
+        <section>
+            <h2 class="text-2xl font-semibold text-white mb-4">Hasil Pencarian</h2>
+            <div id="search-results" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                <p class="text-slate-400 col-span-full">Silakan lakukan pencarian untuk melihat produk dari supplier.</p>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const searchForm = document.getElementById('search-form');
+            const keywordInput = document.getElementById('keyword-input');
+            const searchResultsContainer = document.getElementById('search-results');
+
+            async function searchProducts(keyword) {
+                searchResultsContainer.innerHTML = '<p class="text-slate-400 col-span-full">Mencari...</p>';
+                try {
+                    const response = await fetch(`/api/products/search/${encodeURIComponent(keyword)}`);
+                    const result = await response.json(); // Selalu parse JSON
+                    
+                    if (!response.ok) { // Cek jika status HTTP bukan 2xx
+                        throw new Error(result.error || 'Gagal mengambil data.');
+                    }
+                    
+                    renderSearchResults(result); // result di sini DIJAMIN array
+                } catch (error) {
+                    searchResultsContainer.innerHTML = `<p class="text-red-400 col-span-full">Error: ${error.message}</p>`;
+                }
+            }
+
+            function renderSearchResults(products) {
+                searchResultsContainer.innerHTML = '';
+                if (!products || products.length === 0) {
+                    searchResultsContainer.innerHTML = '<p class="text-slate-400 col-span-full">Produk tidak ditemukan.</p>';
+                    return;
+                }
+
+                products.forEach(product => {
+                    let imageUrl = product.image;
+                    if (typeof imageUrl === 'string' && imageUrl.startsWith('["')) {
+                        try {
+                            const images = JSON.parse(imageUrl);
+                            if (Array.isArray(images) && images.length > 0) imageUrl = images[0];
+                        } catch (e) { /* Abaikan */ }
+                    }
+                    
+                    const card = `
+                        <div class="bg-slate-800 rounded-xl shadow-md overflow-hidden">
+                            <img class="w-full h-48 object-cover" src="/api/image-proxy?url=${encodeURIComponent(imageUrl)}" alt="Product Image">
+                            <div class="p-4">
+                                <h3 class="text-md font-semibold text-white truncate h-12">${product.name}</h3>
+                                <p class="text-slate-300 mt-1 text-lg">${product.price} USD</p>
+                                <button data-pid="${product.id}" class="import-btn w-full mt-4 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
+                                    Tambahkan ke Toko
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    searchResultsContainer.innerHTML += card;
+                });
+            }
+            
+            async function importProduct(pid, button) {
+                button.disabled = true;
+                button.textContent = 'Menambahkan...';
+                try {
+                    const response = await fetch('/api/products/import', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ pid: pid })
+                    });
+                    const result = await response.json();
+                    if (!response.ok) throw new Error(result.error);
+                    
+                    button.textContent = 'Berhasil Ditambahkan';
+                    button.classList.remove('bg-green-600', 'hover:bg-green-700');
+                    button.classList.add('bg-slate-600');
+                } catch (error) {
+                    alert(`Gagal menambahkan produk: ${error.message}`);
+                    button.disabled = false;
+                    button.textContent = 'Tambahkan ke Toko';
+                }
+            }
+
+            searchForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const keyword = keywordInput.value.trim();
+                if (keyword) {
+                    searchProducts(keyword);
+                }
+            });
+
+            searchResultsContainer.addEventListener('click', (e) => {
+                if (e.target.classList.contains('import-btn')) {
+                    const pid = e.target.dataset.pid;
+                    importProduct(pid, e.target);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

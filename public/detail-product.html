@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detail Produk - AXPFashion</title>
+    <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="bg-slate-900 text-slate-200">
+
+    <nav class="bg-slate-800/80 backdrop-blur-md sticky top-0 z-50 shadow-lg">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex-shrink-0">
+                    <a href="/product.html" class="text-white text-2xl font-bold">AXP<span class="text-sky-500">.</span></a>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="/product.html" class="text-slate-300 hover:bg-slate-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Home</a>
+                        <a href="/product.html" class="text-slate-300 hover:bg-slate-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Products</a>
+                        <a href="#" class="text-slate-300 hover:bg-slate-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">About</a>
+                        <a href="/konfirmasi.html" class="text-slate-300 hover:bg-slate-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Konfirmasi</a>
+                    </div>
+                </div>
+                <div class="relative">
+                    <a href="/cart.html" class="text-slate-300 hover:text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                    </a>
+                    <span id="cart-badge" class="absolute -top-2 -right-2 bg-sky-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <div id="product-detail-container" class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12">
+            <p class="text-center text-white col-span-full">Memuat detail produk...</p>
+        </div>
+    </main>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+        const container = document.getElementById('product-detail-container');
+        const cartBadge = document.getElementById('cart-badge');
+        let productData = null;
+        let selectedVariant = null;
+
+        // --- FUNGSI KERANJANG BELANJA ---
+        function getCart() { return JSON.parse(localStorage.getItem('axpfashion_cart')) || []; }
+        function saveCart(cart) { localStorage.setItem('axpfashion_cart', JSON.stringify(cart)); updateCartBadge(); }
+        function updateCartBadge() { const cart = getCart(); const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0); if(cartBadge) { cartBadge.textContent = totalItems; } }
+        function cleanVariantName(variantName, productName) { if (!variantName) return "Default"; let cleaned = variantName.replace(productName, '').trim(); cleaned = cleaned.replace(/\s*\d+(\.\d+)?x\d+(\.\d+)?x\d+(\.\d+)?cm\s*/g, '').trim(); return cleaned || "Default"; }
+
+        function addToCart() {
+            if (!selectedVariant) {
+                alert('Silakan pilih varian terlebih dahulu!');
+                return;
+            }
+            const cart = getCart();
+            const existingItem = cart.find(item => item.vid === selectedVariant.vid);
+            if (existingItem) {
+                existingItem.quantity += 1;
+            } else {
+                // Pastikan productData ada sebelum digunakan
+                if (!productData) {
+                    alert('Data produk belum dimuat sepenuhnya.');
+                    return;
+                }
+                cart.push({ 
+                    id: productData.pid,
+                    vid: selectedVariant.vid,
+                    name: `${productData.name} - ${cleanVariantName(selectedVariant.variantNameEn, productData.name)}`,
+                    price: parseFloat(selectedVariant.customSellPrice) * 15500, // Simpan harga IDR
+                    image: selectedVariant.variantImage || (Array.isArray(productData.gallery_images) && productData.gallery_images[0]) || productData.main_image,
+                    quantity: 1
+                });
+            }
+            saveCart(cart);
+            alert(`"${cleanVariantName(selectedVariant.variantNameEn, productData.name)}" telah ditambahkan ke keranjang.`);
+        }
+
+        // --- FUNGSI TAMPILAN ---
+        function renderProduct(product) {
+            let images = [];
+            try { images = JSON.parse(product.gallery_images || '[]'); } catch (e) {}
+
+            let variants = [];
+            try { variants = JSON.parse(product.variants || '[]'); } catch (e) {}
+
+            const variantsForSale = variants.filter(v => v.isForSale);
+            if (variantsForSale.length > 0) {
+                selectedVariant = variantsForSale[0];
+            }
+
+            const mainImageUrl = product.main_image || images[0] || '';
+
+            const thumbnailsHTML = images.map((img, index) => `
+                <div class="aspect-w-1 aspect-h-1 rounded-md overflow-hidden cursor-pointer border-2 ${img === mainImageUrl ? 'border-sky-500' : 'border-transparent'}">
+                    <img src="/api/image-proxy?url=${encodeURIComponent(img)}" class="w-full h-full object-cover thumbnail-img">
+                </div>
+            `).join('');
+
+            container.innerHTML = `
+                <div class="w-full">
+                    <div class="aspect-w-1 aspect-h-1 bg-slate-800 rounded-lg overflow-hidden mb-4">
+                        <img id="main-image" src="/api/image-proxy?url=${encodeURIComponent(mainImageUrl)}" alt="${product.name}" class="w-full h-full object-contain">
+                    </div>
+                    <div id="thumbnail-gallery" class="grid grid-cols-5 gap-2">
+                        ${thumbnailsHTML}
+                    </div>
+                </div>
+
+                <div class="flex flex-col">
+                    <h1 id="product-name" class="text-2xl font-bold text-white mb-2">${product.name}</h1>
+                    <p id="product-price" class="text-3xl font-light text-sky-400 mb-6">${selectedVariant ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(selectedVariant.customSellPrice * 15500) : 'Harga tidak tersedia'}</p>
+                    <div id="variant-selector" class="mb-6"></div>
+                    <div class="flex items-center gap-4 mb-8">
+                        <button id="add-to-cart-btn" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-6 rounded-lg transition-colors">Tambah ke Keranjang</button>
+                    </div>
+                    <div>
+                        <h2 class="text-xl font-semibold text-white mb-2 border-b border-slate-700 pb-2">Deskripsi</h2>
+                        <p id="product-description" class="text-slate-400 whitespace-pre-wrap">${product.description || 'Tidak ada deskripsi.'}</p>
+                    </div>
+                </div>
+            `;
+
+            renderVariants(variants, product.name);
+            document.getElementById('add-to-cart-btn').addEventListener('click', addToCart);
+
+            document.getElementById('thumbnail-gallery').addEventListener('click', (e) => {
+                if (e.target.classList.contains('thumbnail-img')) {
+                    document.getElementById('main-image').src = e.target.src;
+                    document.querySelectorAll('#thumbnail-gallery > div').forEach(div => div.classList.replace('border-sky-500', 'border-transparent'));
+                    e.target.parentElement.classList.replace('border-transparent', 'border-sky-500');
+                }
+            });
+        }
+
+        function renderVariants(variants, productName) {
+            const variantContainer = document.getElementById('variant-selector');
+            const variantsForSale = variants.filter(v => v.isForSale);
+            if (variantsForSale.length <= 1 && !variantsForSale[0]?.variantNameEn) {
+                variantContainer.innerHTML = '';
+                return;
+            }
+            const variantButtons = variantsForSale.map(v => `
+                <button data-vid="${v.vid}" class="variant-btn border-2 rounded-lg px-4 py-2 mr-2 mb-2 ${v.vid === selectedVariant.vid ? 'border-sky-500 bg-sky-500/10' : 'border-slate-600 hover:border-slate-400'}">
+                    ${cleanVariantName(v.variantNameEn, productName)}
+                </button>
+            `).join('');
+            variantContainer.innerHTML = `<label class="block mb-2 text-sm font-medium">Pilih Varian:</label><div class="flex flex-wrap">${variantButtons}</div>`;
+            variantContainer.addEventListener('click', (e) => {
+                if (e.target.classList.contains('variant-btn')) {
+                    const vid = e.target.dataset.vid;
+                    selectedVariant = variants.find(v => v.vid === vid);
+                    document.getElementById('product-price').textContent = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(selectedVariant.customSellPrice * 15500);
+                    document.getElementById('main-image').src = `/api/image-proxy?url=${encodeURIComponent(selectedVariant.variantImage || productData.main_image)}`;
+                    document.querySelectorAll('.variant-btn').forEach(btn => {
+                        btn.classList.remove('border-sky-500', 'bg-sky-500/10');
+                        btn.classList.add('border-slate-600');
+                    });
+                    e.target.classList.add('border-sky-500', 'bg-sky-500/10');
+                    e.target.classList.remove('border-slate-600');
+                }
+            });
+        }
+
+        async function main() {
+            updateCartBadge();
+            const urlParams = new URLSearchParams(window.location.search);
+            const pid = urlParams.get('pid');
+            if (!pid) { container.innerHTML = '<p class="text-red-400">Error: Produk tidak valid.</p>'; return; }
+            try {
+                const response = await fetch(`/api/product/${pid}`);
+                if (!response.ok) throw new Error('Produk tidak ditemukan.');
+                productData = await response.json();
+                renderProduct(productData);
+            } catch (error) {
+                container.innerHTML = `<p class="text-red-400">${error.message}</p>`;
+            }
+        }
+        main();
+    });
+  </script>
+ </body>
+</html>

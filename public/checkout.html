@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout - AXPFashion</title>
+    <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="bg-slate-900 text-slate-200">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="text-center mb-8">
+            <a href="/product.html" class="text-white text-3xl font-bold">AXP<span class="text-sky-500">.</span></a>
+        </header>
+
+        <main class="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            
+            <div class="bg-slate-800 rounded-xl shadow-lg p-6 lg:p-8">
+                <h2 class="text-2xl font-semibold text-white mb-6">Informasi Pengiriman</h2>
+                <form id="checkout-form" class="space-y-4">
+                    <div>
+                        <label for="customer_name" class="block mb-2 text-sm font-medium text-slate-300">Nama Lengkap</label>
+                        <input type="text" id="customer_name" name="customer_name" class="w-full p-3 bg-slate-700 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500" required>
+                    </div>
+                    <div>
+                        <label for="phone" class="block mb-2 text-sm font-medium text-slate-300">Nomor Telepon (WhatsApp)</label>
+                        <input type="tel" id="phone" name="phone" class="w-full p-3 bg-slate-700 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500" required>
+                    </div>
+                    <div>
+                        <label for="address" class="block mb-2 text-sm font-medium text-slate-300">Alamat Lengkap</label>
+                        <textarea id="address" name="address" rows="3" class="w-full p-3 bg-slate-700 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500" required></textarea>
+                    </div>
+                     <div>
+                        <label for="notes" class="block mb-2 text-sm font-medium text-slate-300">Catatan (Opsional)</label>
+                        <input type="text" id="notes" name="notes" class="w-full p-3 bg-slate-700 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500">
+                    </div>
+                </form>
+            </div>
+
+            <div class="bg-slate-800 rounded-xl shadow-lg p-6 lg:p-8">
+                <h2 class="text-2xl font-semibold text-white mb-6">Pesanan Anda</h2>
+                
+                <div id="order-summary-items" class="space-y-4 max-h-60 overflow-y-auto pr-2">
+                    </div>
+
+                <div class="border-t border-slate-700 my-6 pt-6">
+                    <div class="flex justify-between font-bold text-white text-lg">
+                        <span>Total</span>
+                        <span id="total-price">Rp 0</span>
+                    </div>
+                </div>
+
+                <div>
+                    <h3 class="text-lg font-semibold text-white mb-4">Metode Pembayaran</h3>
+                    <div class="space-y-3">
+                        <label class="flex items-center p-4 bg-slate-700 rounded-lg cursor-pointer">
+                            <input type="radio" name="payment_method" value="cod" class="w-5 h-5 text-sky-600 bg-slate-600 border-slate-500 focus:ring-sky-500">
+                            <span class="ml-3 text-sm font-medium">Cash on Delivery (COD)</span>
+                        </label>
+                        <label class="flex items-center p-4 bg-slate-700 rounded-lg cursor-pointer">
+                            <input type="radio" name="payment_method" value="transfer" class="w-5 h-5 text-sky-600 bg-slate-600 border-slate-500 focus:ring-sky-500" checked>
+                            <span class="ml-3 text-sm font-medium">Transfer Bank</span>
+                        </label>
+                    </div>
+                </div>
+
+                <button type="submit" id="submit-button" form="checkout-form" class="w-full mt-8 bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 rounded-lg transition-colors">
+    Buat Pesanan
+</button>
+            </div>
+        </main>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const orderSummaryItems = document.getElementById('order-summary-items');
+        const totalPriceEl = document.getElementById('total-price');
+        const checkoutForm = document.getElementById('checkout-form');
+        // --- PERUBAHAN DI SINI ---
+        // Kita ambil tombolnya di awal menggunakan ID barunya
+        const submitButton = document.getElementById('submit-button');
+
+        function formatRupiah(number) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
+        }
+
+        function loadOrderSummary() {
+            const cart = JSON.parse(localStorage.getItem('axp_cart')) || [];
+            orderSummaryItems.innerHTML = '';
+            let subtotal = 0;
+
+            if (cart.length === 0) {
+                window.location.href = '/product.html';
+                return;
+            }
+
+            cart.forEach(item => {
+                subtotal += item.price * item.quantity;
+                const itemHTML = `
+                    <div class="flex justify-between items-start text-sm">
+                        <div class="flex">
+                            <img src="${item.image}" class="w-12 h-12 object-cover rounded-md mr-3">
+                            <div>
+                                <p class="font-medium text-white">${item.name}</p>
+                                <p class="text-slate-400">Qty: ${item.quantity}</p>
+                            </div>
+                        </div>
+                        <p class="text-slate-300">${formatRupiah(item.price * item.quantity)}</p>
+                    </div>
+                `;
+                orderSummaryItems.innerHTML += itemHTML;
+            });
+
+            totalPriceEl.textContent = formatRupiah(subtotal);
+        }
+        
+        checkoutForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitButton = document.getElementById('submit-button');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Memproses...';
+
+            const formData = new FormData(checkoutForm);
+            const customer_name = formData.get('customer_name');
+            const cart = JSON.parse(localStorage.getItem('axp_cart')) || [];
+            
+            if (cart.length === 0) {
+                alert('Keranjang Anda kosong!');
+                submitButton.disabled = false;
+                submitButton.textContent = 'Buat Pesanan';
+                return;
+            }
+
+            const itemSummary = cart.map(item => `${item.name} (Qty: ${item.quantity})`).join(', ');
+
+            const orderData = {
+                customer_name: customer_name,
+                item: itemSummary,
+            };
+
+            try {
+                const response = await fetch('/api/orders', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(orderData)
+                });
+
+                const result = await response.json(); // Ambil hasil dari server
+
+                if (!response.ok) {
+                    throw new Error(result.error || 'Gagal membuat pesanan.');
+                }
+
+                // --- PERUBAHAN DI SINI ---
+                // Simpan ID Pesanan ke sessionStorage untuk digunakan di halaman berikutnya
+                sessionStorage.setItem('last_order_id', result.order_id);
+
+                localStorage.removeItem('axp_cart'); // Kosongkan keranjang
+                window.location.href = '/thankyou.html'; // Arahkan ke halaman terima kasih
+
+            } catch (error) {
+                alert(error.message);
+                submitButton.disabled = false;
+                submitButton.textContent = 'Buat Pesanan';
+            }
+        });
+
+        loadOrderSummary();
+    });
+</script>         
+           
+</body>
+</html>
+

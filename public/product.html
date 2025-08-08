@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Produk - AXPFashion</title>
+    <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="bg-slate-900">
+
+    <nav class="bg-slate-800/80 backdrop-blur-md sticky top-0 z-50 shadow-lg">
+        <div class="container mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <div class="flex-shrink-0">
+                    <a href="/product.html" class="text-white text-2xl font-bold">AXP<span class="text-sky-500">Fashion</span></a>
+                </div>
+                <div class="hidden md:block">
+                    <div class="ml-10 flex items-baseline space-x-4">
+                        <a href="/product.html" class="text-slate-300 hover:bg-slate-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Home</a>
+                        <a href="/product.html" class="bg-slate-900 text-white px-3 py-2 rounded-md text-sm font-medium" aria-current="page">Products</a>
+                        <a href="#" class="text-slate-300 hover:bg-slate-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">About</a>
+                        <a href="/konfirmasi.html" class="text-slate-300 hover:bg-slate-700 hover:text-white px-3 py-2 rounded-md text-sm font-medium">Konfirmasi</a>
+                    </div>
+                </div>
+                <div class="relative">
+                    <a href="/cart.html" class="text-slate-300 hover:text-white">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+                    </a>
+                    <span id="cart-badge" class="absolute -top-2 -right-2 bg-sky-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">0</span>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+        <header class="text-center mb-12 mt-8">
+            <h1 class="text-4xl sm:text-5xl font-extrabold text-white">Koleksi Pilihan Kami</h1>
+            <p class="text-slate-400 mt-2">Temukan gaya terbaik yang mendefinisikan Anda.</p>
+        </header>
+
+        <main id="product-gallery" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const productGallery = document.getElementById('product-gallery');
+            const cartBadge = document.getElementById('cart-badge');
+
+            function getCart() { return JSON.parse(localStorage.getItem('axpfashion_cart')) || []; }
+            function updateCartBadge() { const cart = getCart(); const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0); if(cartBadge) cartBadge.textContent = totalItems; }
+
+            function renderProducts(products) {
+                productGallery.innerHTML = '';
+                if (!Array.isArray(products) || products.length === 0) {
+                    productGallery.innerHTML = '<p class="text-white text-center col-span-full">Belum ada produk di toko. Silakan tambahkan dari dasbor admin.</p>';
+                    return;
+                }
+
+                products.forEach(product => {
+                    if (!product.main_image || !product.variants) return;
+
+                    let variants = [];
+                    try { variants = JSON.parse(product.variants); } catch(e) { return; }
+
+                    const variantsForSale = variants.filter(v => v.isForSale);
+                    if (variantsForSale.length === 0) return;
+
+                    const lowestPrice = Math.min(...variantsForSale.map(v => v.customSellPrice));
+                    const priceInIDR = lowestPrice * 15500;
+                    const formattedPrice = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(priceInIDR);
+                    
+                    const cardElement = document.createElement('a');
+                    cardElement.href = `/detail-product.html?pid=${product.pid}`;
+                    cardElement.className = 'group bg-slate-800 rounded-xl shadow-lg overflow-hidden flex flex-col justify-between transform hover:-translate-y-2 transition-transform duration-300';
+                    cardElement.innerHTML = `
+                        <div>
+                            <div class="aspect-w-1 aspect-h-1 w-full overflow-hidden">
+                                <img class="w-full h-full object-cover" src="/api/image-proxy?url=${encodeURIComponent(product.main_image)}" alt="${product.name}">
+                            </div>
+                            <div class="p-4">
+                                <h3 class="font-semibold text-lg text-white truncate h-14">${product.name}</h3>
+                            </div>
+                        </div>
+                        <div class="p-4 pt-0">
+                            <p class="text-slate-400 text-sm">Mulai dari</p>
+                            <p class="text-white mt-1 text-lg font-semibold">${formattedPrice}</p>
+                        </div>
+                    `;
+                    
+                    productGallery.appendChild(cardElement);
+                });
+            }
+
+            async function main() {
+                updateCartBadge();
+                productGallery.innerHTML = '<p class="text-white text-center col-span-full">Memuat koleksi produk...</p>';
+                try {
+                    const response = await fetch('/api/products');
+                    if (!response.ok) throw new Error('Gagal mengambil data produk.');
+                    const products = await response.json();
+                    renderProducts(products);
+                } catch (error) {
+                    productGallery.innerHTML = `<p class="text-red-400 text-center col-span-full">${error.message}</p>`;
+                }
+            }
+
+            main();
+        });
+    </script>
+</body>
+</html>

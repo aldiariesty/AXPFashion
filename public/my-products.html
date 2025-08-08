@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Produk Saya - Admin Panel</title>
+    <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="bg-slate-900 text-slate-200">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8">
+
+        <header class="flex justify-between items-center mb-8">
+            <div>
+                <h1 class="text-3xl font-bold text-white">Produk Toko Saya</h1>
+                <p class="text-slate-400">Kelola produk yang tampil di etalase Anda.</p>
+            </div>
+            <div>
+                <a href="/add-product.html" class="bg-sky-600 hover:bg-sky-700 text-white font-bold py-2 px-4 rounded-lg transition-colors mr-4">
+                    + Tambah Produk Baru
+                </a>
+                <a href="/admin.html" class="text-sky-400 hover:underline">Kembali ke Dasbor</a>
+            </div>
+        </header>
+
+        <main class="bg-slate-800 rounded-xl shadow-2xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm text-left">
+                    <thead class="bg-slate-700 text-xs text-slate-300 uppercase tracking-wider">
+                        <tr>
+                            <th scope="col" class="px-6 py-3">Gambar</th>
+                            <th scope="col" class="px-6 py-3">Nama Produk</th>
+                            <th scope="col" class="px-6 py-3">Harga Supplier</th>
+                            <th scope="col" class="px-6 py-3">PID</th>
+                            <th scope="col" class="px-6 py-3"><span class="sr-only">Aksi</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="my-products-table" class="divide-y divide-slate-700">
+                        </tbody>
+                </table>
+            </div>
+        </main>
+
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            const tableBody = document.getElementById('my-products-table');
+
+            async function loadProducts() {
+                tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-4">Memuat produk...</td></tr>';
+                try {
+                    const response = await fetch('/api/products'); // API yang sudah kita buat
+                    const products = await response.json();
+                    renderTable(products);
+                } catch (error) {
+                    tableBody.innerHTML = `<tr><td colspan="5" class="text-center p-4 text-red-400">Gagal memuat produk.</td></tr>`;
+                }
+            }
+
+            function renderTable(products) {
+               tableBody.innerHTML = '';
+                 if (products.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="5" class="text-center p-4">Anda belum menambahkan produk.</td></tr>';
+                return;
+            }
+
+             products.forEach(product => {
+              const row = document.createElement('tr');
+
+               // --- PERBAIKAN DI BARIS INI ---
+               // Gunakan API image-proxy untuk menampilkan gambar
+                 const imageUrl = `/api/image-proxy?url=${encodeURIComponent(product.main_image || product.image)}`;
+
+                row.innerHTML = `
+                <td class="px-6 py-4">
+                    <img src="${imageUrl}" alt="${product.name}" class="w-16 h-16 object-cover rounded-md">
+                </td>
+                <td class="px-6 py-4 font-medium text-white">${product.name}</td>
+                <td class="px-6 py-4">${product.price} USD</td>
+                <td class="px-6 py-4 font-mono text-xs text-slate-400">${product.pid}</td>
+                <td class="px-6 py-4 text-right">
+                    <a href="/edit-product.html?pid=${product.pid}" class="font-medium text-sky-400 hover:underline mr-4">Edit</a>
+                    <button data-pid="${product.pid}" class="delete-btn font-medium text-red-500 hover:underline">Hapus</button>
+                </td>
+                `;
+                  tableBody.appendChild(row);
+              });
+            }
+
+            tableBody.addEventListener('click', async (e) => {
+                if (e.target.classList.contains('delete-btn')) {
+                    const pid = e.target.dataset.pid;
+                    if (confirm(`Anda yakin ingin menghapus produk ini dari toko Anda?`)) {
+                        try {
+                            const response = await fetch(`/api/products/delete/${pid}`, { method: 'POST' });
+                            if (!response.ok) throw new Error('Gagal menghapus produk.');
+                            loadProducts(); // Muat ulang daftar setelah berhasil
+                        } catch (error) {
+                            alert(error.message);
+                        }
+                    }
+                }
+            });
+
+            loadProducts();
+        });
+    </script>
+</body>
+</html>

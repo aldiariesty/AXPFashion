@@ -1,37 +1,135 @@
 <!DOCTYPE html>
-<html>
-<head><title>Admin Login</title></head>
-<body>
-  <h1>Login Admin</h1>
-  <form id="loginForm">
-    <input type="text" name="username" placeholder="Username" required><br><br>
-    <input type="password" name="password" placeholder="Password" required><br><br>
-    <button type="submit">Login</button>
-  </form>
-  <p id="msg"></p>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - AXPFashion</title>
+    <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="bg-slate-900 text-white flex items-center justify-center min-h-screen">
+
+    <div class="bg-slate-800 p-8 rounded-xl shadow-2xl w-full max-w-md">
+        <h1 class="text-3xl font-bold text-center mb-6">AXPFashion Admin</h1>
+        
+        <form id="loginForm">
+            <div class="mb-4">
+                <label for="username" class="block mb-2 text-sm font-medium text-slate-300">Username</label>
+                <input type="text" id="username" name="username" placeholder="Masukkan username" class="w-full p-3 bg-slate-700 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500" required>
+            </div>
+
+            <div class="mb-6">
+                <label for="password" class="block mb-2 text-sm font-medium text-slate-300">Password</label>
+                <input type="password" id="password" name="password" placeholder="••••••••" class="w-full p-3 bg-slate-700 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500" required>
+            </div>
+
+            <button type="submit" class="w-full p-3 bg-sky-600 hover:bg-sky-700 rounded-lg font-semibold transition-colors">Login</button>
+        </form>
+
+        <p id="msg" class="mt-4 text-center text-red-400"></p>
+    </div>
 
   <script>
     const form = document.getElementById('loginForm');
     const msg = document.getElementById('msg');
-
+    
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const formData = new FormData(form);
       const data = Object.fromEntries(formData.entries());
-
-      const res = await fetch('/api/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      });
-
-      const result = await res.json();
-      if (res.ok) {
-        window.location.href = '/admin.html';
-      } else {
-        msg.textContent = result.error || 'Gagal login';
+      
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          msg.textContent = 'Login berhasil! Mengalihkan...';
+          msg.className = 'mt-4 text-center text-green-400';
+          window.location.href = '/admin.html';
+        } else {
+          msg.textContent = result.error || 'Terjadi kesalahan';
+          msg.className = 'mt-4 text-center text-red-400';
+        }
+      } catch (error) {
+        msg.textContent = 'Tidak dapat terhubung ke server.';
+        msg.className = 'mt-4 text-center text-red-400';
       }
     });
   </script>
+
 </body>
 </html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login - AXPFashion</title>
+    <link href="/css/style.css" rel="stylesheet">
+</head>
+<body class="bg-slate-900 text-white flex items-center justify-center min-h-screen">
+
+    <div class="bg-slate-800 p-8 rounded-xl shadow-2xl w-full max-w-md">
+        <h1 class="text-3xl font-bold text-center mb-6">AXPFashion Admin</h1>
+        
+        <form id="loginForm">
+            <div class="mb-4">
+                <label for="username" class="block mb-2 text-sm font-medium text-slate-300">Username</label>
+                <input type="text" id="username" name="username" placeholder="Masukkan username" class="w-full p-3 bg-slate-700 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500" required>
+            </div>
+
+            <div class="mb-6">
+                <label for="password" class="block mb-2 text-sm font-medium text-slate-300">Password</label>
+                <input type="password" id="password" name="password" placeholder="••••••••" class="w-full p-3 bg-slate-700 rounded-lg border border-slate-600 focus:outline-none focus:ring-2 focus:ring-sky-500" required>
+            </div>
+
+            <button type="submit" class="w-full p-3 bg-sky-600 hover:bg-sky-700 rounded-lg font-semibold transition-colors">Login</button>
+        </form>
+
+        <p id="msg" class="mt-4 text-center text-red-400"></p>
+    </div>
+
+  <script>
+    const form = document.getElementById('loginForm');
+    const msg = document.getElementById('msg');
+    
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(form);
+      const data = Object.fromEntries(formData.entries());
+      
+      try {
+        const response = await fetch('/api/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(data),
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          msg.textContent = 'Login berhasil! Mengalihkan...';
+          msg.className = 'mt-4 text-center text-green-400';
+          window.location.href = '/admin.html';
+        } else {
+          msg.textContent = result.error || 'Terjadi kesalahan';
+          msg.className = 'mt-4 text-center text-red-400';
+        }
+      } catch (error) {
+        msg.textContent = 'Tidak dapat terhubung ke server.';
+        msg.className = 'mt-4 text-center text-red-400';
+      }
+    });
+  </script>
+
+</body>
+</html>
+
