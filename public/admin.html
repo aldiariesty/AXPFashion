@@ -7,139 +7,101 @@
     <link href="/css/style.css" rel="stylesheet">
 </head>
 <body class="bg-slate-900 text-slate-200">
-
     <div class="container mx-auto p-4 sm:p-6 lg:p-8">
-        
         <header class="flex justify-between items-center mb-8">
-    <div>
-        <h1 class="text-3xl font-bold text-white">Admin Dashboard</h1>
-        <p class="text-slate-400">Selamat datang kembali!</p>
-    </div>
-    
-    <div>
-        <a href="/my-products.html" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors mr-4">
-            Kelola Produk Saya
-        </a>
-        <a href="/logout" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">
-            Logout
-        </a>
-    </div>
-</header>
+            <div>
+                <h1 class="text-3xl font-bold text-white">Admin Dashboard</h1>
+                <p class="text-slate-400">Selamat datang kembali!</p>
+            </div>
+            <div>
+                <a href="/my-products.html" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-colors mr-4">Kelola Produk Saya</a>
+                <a href="/logout" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Logout</a>
+            </div>
+        </header>
 
         <main class="bg-slate-800 rounded-xl shadow-2xl overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="min-w-full text-sm text-left">
                     <thead class="bg-slate-700 text-xs text-slate-300 uppercase tracking-wider">
                         <tr>
-                            <th scope="col" class="px-6 py-3">Order ID</th>
-                            <th scope="col" class="px-6 py-3">Customer</th>
-                            <th scope="col" class="px-6 py-3">Item</th>
-                            <th scope="col" class="px-6 py-3">Status</th>
-                            <th scope="col" class="px-6 py-3">
-                                <span class="sr-only">Actions</span>
-                            </th>
+                            <th class="px-6 py-3">Order ID</th>
+                            <th class="px-6 py-3">Customer</th>
+                            <th class="px-6 py-3">Item</th>
+                            <th class="px-6 py-3">Status</th>
+                            <th class="px-6 py-3"><span class="sr-only">Aksi</span></th>
                         </tr>
                     </thead>
-                    <tbody id="ordersTableBody" class="divide-y divide-slate-700">
-                        <tr>
-                            <td colspan="5" class="px-6 py-4 text-center">Memuat data pesanan...</td>
-                        </tr>
-                    </tbody>
+                    <tbody id="ordersTableBody" class="divide-y divide-slate-700"></tbody>
                 </table>
             </div>
         </main>
-
     </div>
-
     <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            const ordersTableBody = document.getElementById('ordersTableBody');
+document.addEventListener('DOMContentLoaded', () => {
+    const ordersTableBody = document.getElementById('ordersTableBody');
 
-            // Fungsi untuk mengambil dan menampilkan pesanan
-            async function fetchOrders() {
-                try {
-                    const response = await fetch('/api/orders');
-                    if (!response.ok) throw new Error('Gagal memuat data');
-                    const orders = await response.json();
-                    renderTable(orders);
-                } catch (error) {
-                    ordersTableBody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 text-center text-red-400">${error.message}</td></tr>`;
-                }
-            }
+    // Ambil data pesanan dari backend
+    async function fetchOrders() {
+        try {
+            const res = await fetch('/api/orders');
+            if (!res.ok) throw new Error('Gagal mengambil data pesanan');
+            const orders = await res.json();
 
-            // Fungsi untuk "menggambar" tabel
-            function renderTable(orders) {
-                if (orders.length === 0) {
-                    ordersTableBody.innerHTML = `<tr><td colspan="5" class="px-6 py-4 text-center">Belum ada pesanan.</td></tr>`;
-                    return;
-                }
+            // Kosongkan tabel
+            ordersTableBody.innerHTML = '';
 
-                ordersTableBody.innerHTML = ''; // Kosongkan tabel dulu
-                orders.forEach(order => {
-                    const row = document.createElement('tr');
-                    row.className = 'hover:bg-slate-700/50';
-
-                    // Tombol Aksi
-                    let actionButtons = '';
-                    if (order.status === 'pending') {
-                        actionButtons = `
-                            <button data-id="${order.id}" class="confirm-btn font-medium text-green-500 hover:underline mr-4">Confirm</button>
-                            <button data-id="${order.id}" class="reject-btn font-medium text-red-500 hover:underline">Reject</button>
-                        `;
-                    }
-                    
-                    // Status Badge
-                    let statusBadge = '';
-                    if(order.status === 'pending') statusBadge = 'bg-yellow-600 text-yellow-100';
-                    if(order.status === 'confirmed') statusBadge = 'bg-green-600 text-green-100';
-                    if(order.status === 'rejected') statusBadge = 'bg-red-600 text-red-100';
-
-                    row.innerHTML = `
-                        <td class="px-6 py-4 font-mono text-slate-400">${order.id}</td>
-                        <td class="px-6 py-4 font-medium text-white whitespace-nowrap">${order.customer_name}</td>
-                        <td class="px-6 py-4">${order.item}</td>
-                        <td class="px-6 py-4">
-                            <span class="px-2 py-1 text-xs font-semibold rounded-full ${statusBadge}">
-                                ${order.status}
-                            </span>
-                        </td>
-                        <td class="px-6 py-4 text-right">
-                            ${actionButtons}
-                        </td>
-                    `;
-                    ordersTableBody.appendChild(row);
-                });
-            }
-            
-            // Fungsi untuk menangani aksi (confirm/reject)
-            async function handleOrderAction(orderId, action) {
-                try {
-                    const response = await fetch(`/api/orders/${orderId}/${action}`, {
-                        method: 'POST'
-                    });
-                    if (!response.ok) throw new Error(`Gagal ${action} pesanan`);
-                    fetchOrders(); // Muat ulang tabel setelah aksi berhasil
-                } catch (error) {
-                    alert(error.message);
-                }
-            }
-            
-            // Event listener untuk tombol di tabel
-            ordersTableBody.addEventListener('click', (e) => {
-                const target = e.target;
-                const orderId = target.dataset.id;
-
-                if (target.classList.contains('confirm-btn')) {
-                    handleOrderAction(orderId, 'confirm');
-                } else if (target.classList.contains('reject-btn')) {
-                    handleOrderAction(orderId, 'reject');
-                }
+            // Render data pesanan
+            orders.forEach(order => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-6 py-4">${order.id}</td>
+                    <td class="px-6 py-4">
+                        <div class="font-semibold">${order.customer_name}</div>
+                        <div class="text-xs text-slate-400">${order.customer_phone}</div>
+                        <div class="text-xs text-slate-400">${order.customer_address}, ${order.customer_city}, ${order.customer_province} ${order.customer_zip}</div>
+                    </td>
+                    <td class="px-6 py-4">${order.items_summary}</td>
+                    <td class="px-6 py-4">${order.status}</td>
+                    <td class="px-6 py-4 text-right space-x-2">
+                        <button class="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded"
+                            onclick="confirmOrder(${order.id})">Konfirmasi</button>
+                        <button class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded"
+                            onclick="rejectOrder(${order.id})">Tolak</button>
+                    </td>
+                `;
+                ordersTableBody.appendChild(tr);
             });
+        } catch (err) {
+            console.error(err);
+        }
+    }
 
-            // Muat pesanan saat halaman pertama kali dibuka
+    // Konfirmasi pesanan
+    window.confirmOrder = async function(id) {
+        try {
+            const res = await fetch(`/api/orders/${id}/confirm`, { method: 'POST' });
+            if (!res.ok) throw new Error('Gagal mengkonfirmasi pesanan');
             fetchOrders();
-        });
-    </script>
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    // Tolak pesanan
+    window.rejectOrder = async function(id) {
+        try {
+            const res = await fetch(`/api/orders/${id}/reject`, { method: 'POST' });
+            if (!res.ok) throw new Error('Gagal menolak pesanan');
+            fetchOrders();
+        } catch (err) {
+            console.error(err);
+        }
+    }
+
+    // Panggil saat halaman dimuat
+    fetchOrders();
+});
+</script>
 </body>
 </html>
 

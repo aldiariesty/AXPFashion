@@ -39,148 +39,162 @@
     </main>
 
     <script>
-    document.addEventListener('DOMContentLoaded', async () => {
-        const container = document.getElementById('product-detail-container');
-        const cartBadge = document.getElementById('cart-badge');
-        let productData = null;
-        let selectedVariant = null;
+        document.addEventListener('DOMContentLoaded', async () => {
+            const container = document.getElementById('product-detail-container');
+            const cartBadge = document.getElementById('cart-badge');
+            
+            // Variabel global untuk menyimpan data penting
+            let productData = null;
+            let variantsData = [];
+            let selectedVariant = null;
 
-        // --- FUNGSI KERANJANG BELANJA ---
-        function getCart() { return JSON.parse(localStorage.getItem('axpfashion_cart')) || []; }
-        function saveCart(cart) { localStorage.setItem('axpfashion_cart', JSON.stringify(cart)); updateCartBadge(); }
-        function updateCartBadge() { const cart = getCart(); const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0); if(cartBadge) { cartBadge.textContent = totalItems; } }
-        function cleanVariantName(variantName, productName) { if (!variantName) return "Default"; let cleaned = variantName.replace(productName, '').trim(); cleaned = cleaned.replace(/\s*\d+(\.\d+)?x\d+(\.\d+)?x\d+(\.\d+)?cm\s*/g, '').trim(); return cleaned || "Default"; }
+            function getCart() { return JSON.parse(localStorage.getItem('axpfashion_cart')) || []; }
+            function saveCart(cart) { localStorage.setItem('axpfashion_cart', JSON.stringify(cart)); updateCartBadge(); }
+            function updateCartBadge() { const cart = getCart(); const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0); if(cartBadge) { cartBadge.textContent = totalItems; } }
+            function cleanVariantName(variantName, productName) {
+                if (!variantName) return "Default";
 
-        function addToCart() {
-            if (!selectedVariant) {
-                alert('Silakan pilih varian terlebih dahulu!');
-                return;
-            }
-            const cart = getCart();
-            const existingItem = cart.find(item => item.vid === selectedVariant.vid);
-            if (existingItem) {
-                existingItem.quantity += 1;
-            } else {
-                // Pastikan productData ada sebelum digunakan
-                if (!productData) {
-                    alert('Data produk belum dimuat sepenuhnya.');
+                // Hapus nama produk utama dari nama varian
+                  let cleaned = variantName.replace(productName, '').trim();
+                // Hapus dimensi angka seperti "15x5.5x13.5cm"
+                  cleaned = cleaned.replace(/\s*\d+(\.\d+)?x\d+(\.\d+)?x\d+(\.\d+)?cm\s*/g, '').trim();
+                // --- TAMBAHAN BARU: Hapus kode aneh di awal ---
+                  cleaned = cleaned.replace(/^[A-Z0-9\s-]+(?=\s[A-Z][a-z])/, '').trim();
+
+                  return cleaned || "Default";
+                }
+
+            function addToCart() {
+                if (!selectedVariant) {
+                    alert('Silakan pilih varian terlebih dahulu!');
                     return;
                 }
-                cart.push({ 
-                    id: productData.pid,
-                    vid: selectedVariant.vid,
-                    name: `${productData.name} - ${cleanVariantName(selectedVariant.variantNameEn, productData.name)}`,
-                    price: parseFloat(selectedVariant.customSellPrice) * 15500, // Simpan harga IDR
-                    image: selectedVariant.variantImage || (Array.isArray(productData.gallery_images) && productData.gallery_images[0]) || productData.main_image,
-                    quantity: 1
-                });
-            }
-            saveCart(cart);
-            alert(`"${cleanVariantName(selectedVariant.variantNameEn, productData.name)}" telah ditambahkan ke keranjang.`);
-        }
-
-        // --- FUNGSI TAMPILAN ---
-        function renderProduct(product) {
-            let images = [];
-            try { images = JSON.parse(product.gallery_images || '[]'); } catch (e) {}
-
-            let variants = [];
-            try { variants = JSON.parse(product.variants || '[]'); } catch (e) {}
-
-            const variantsForSale = variants.filter(v => v.isForSale);
-            if (variantsForSale.length > 0) {
-                selectedVariant = variantsForSale[0];
-            }
-
-            const mainImageUrl = product.main_image || images[0] || '';
-
-            const thumbnailsHTML = images.map((img, index) => `
-                <div class="aspect-w-1 aspect-h-1 rounded-md overflow-hidden cursor-pointer border-2 ${img === mainImageUrl ? 'border-sky-500' : 'border-transparent'}">
-                    <img src="/api/image-proxy?url=${encodeURIComponent(img)}" class="w-full h-full object-cover thumbnail-img">
-                </div>
-            `).join('');
-
-            container.innerHTML = `
-                <div class="w-full">
-                    <div class="aspect-w-1 aspect-h-1 bg-slate-800 rounded-lg overflow-hidden mb-4">
-                        <img id="main-image" src="/api/image-proxy?url=${encodeURIComponent(mainImageUrl)}" alt="${product.name}" class="w-full h-full object-contain">
-                    </div>
-                    <div id="thumbnail-gallery" class="grid grid-cols-5 gap-2">
-                        ${thumbnailsHTML}
-                    </div>
-                </div>
-
-                <div class="flex flex-col">
-                    <h1 id="product-name" class="text-2xl font-bold text-white mb-2">${product.name}</h1>
-                    <p id="product-price" class="text-3xl font-light text-sky-400 mb-6">${selectedVariant ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(selectedVariant.customSellPrice * 15500) : 'Harga tidak tersedia'}</p>
-                    <div id="variant-selector" class="mb-6"></div>
-                    <div class="flex items-center gap-4 mb-8">
-                        <button id="add-to-cart-btn" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-6 rounded-lg transition-colors">Tambah ke Keranjang</button>
-                    </div>
-                    <div>
-                        <h2 class="text-xl font-semibold text-white mb-2 border-b border-slate-700 pb-2">Deskripsi</h2>
-                        <p id="product-description" class="text-slate-400 whitespace-pre-wrap">${product.description || 'Tidak ada deskripsi.'}</p>
-                    </div>
-                </div>
-            `;
-
-            renderVariants(variants, product.name);
-            document.getElementById('add-to-cart-btn').addEventListener('click', addToCart);
-
-            document.getElementById('thumbnail-gallery').addEventListener('click', (e) => {
-                if (e.target.classList.contains('thumbnail-img')) {
-                    document.getElementById('main-image').src = e.target.src;
-                    document.querySelectorAll('#thumbnail-gallery > div').forEach(div => div.classList.replace('border-sky-500', 'border-transparent'));
-                    e.target.parentElement.classList.replace('border-transparent', 'border-sky-500');
+                const cart = getCart();
+                const existingItem = cart.find(item => item.vid === selectedVariant.vid);
+                const variantName = cleanVariantName(selectedVariant.variantNameEn, productData.name);
+                if (existingItem) {
+                    existingItem.quantity += 1;
+                } else {
+                    cart.push({ 
+                        id: productData.pid,
+                        vid: selectedVariant.vid,
+                        name: `${productData.name} - ${variantName}`,
+                        price: parseFloat(selectedVariant.customSellPrice) * 15500,
+                        image: selectedVariant.variantImage || productData.main_image,
+                        quantity: 1
+                    });
                 }
-            });
-        }
-
-        function renderVariants(variants, productName) {
-            const variantContainer = document.getElementById('variant-selector');
-            const variantsForSale = variants.filter(v => v.isForSale);
-            if (variantsForSale.length <= 1 && !variantsForSale[0]?.variantNameEn) {
-                variantContainer.innerHTML = '';
-                return;
+                saveCart(cart);
+                alert(`"${variantName}" telah ditambahkan ke keranjang.`);
             }
-            const variantButtons = variantsForSale.map(v => `
-                <button data-vid="${v.vid}" class="variant-btn border-2 rounded-lg px-4 py-2 mr-2 mb-2 ${v.vid === selectedVariant.vid ? 'border-sky-500 bg-sky-500/10' : 'border-slate-600 hover:border-slate-400'}">
-                    ${cleanVariantName(v.variantNameEn, productName)}
-                </button>
-            `).join('');
-            variantContainer.innerHTML = `<label class="block mb-2 text-sm font-medium">Pilih Varian:</label><div class="flex flex-wrap">${variantButtons}</div>`;
-            variantContainer.addEventListener('click', (e) => {
-                if (e.target.classList.contains('variant-btn')) {
-                    const vid = e.target.dataset.vid;
-                    selectedVariant = variants.find(v => v.vid === vid);
-                    document.getElementById('product-price').textContent = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(selectedVariant.customSellPrice * 15500);
-                    document.getElementById('main-image').src = `/api/image-proxy?url=${encodeURIComponent(selectedVariant.variantImage || productData.main_image)}`;
-                    document.querySelectorAll('.variant-btn').forEach(btn => {
+
+            function updateDisplayForVariant(variant) {
+                selectedVariant = variant;
+                // Update harga
+                document.getElementById('product-price').textContent = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(selectedVariant.customSellPrice * 15500);
+                // Update gambar utama
+                document.getElementById('main-image').src = `/api/image-proxy?url=${encodeURIComponent(selectedVariant.variantImage || productData.main_image)}`;
+                // Update highlight tombol
+                document.querySelectorAll('.variant-btn').forEach(btn => {
+                    if (btn.dataset.vid === selectedVariant.vid) {
+                        btn.classList.add('border-sky-500', 'bg-sky-500/10');
+                        btn.classList.remove('border-slate-600');
+                    } else {
                         btn.classList.remove('border-sky-500', 'bg-sky-500/10');
                         btn.classList.add('border-slate-600');
-                    });
-                    e.target.classList.add('border-sky-500', 'bg-sky-500/10');
-                    e.target.classList.remove('border-slate-600');
-                }
-            });
-        }
-
-        async function main() {
-            updateCartBadge();
-            const urlParams = new URLSearchParams(window.location.search);
-            const pid = urlParams.get('pid');
-            if (!pid) { container.innerHTML = '<p class="text-red-400">Error: Produk tidak valid.</p>'; return; }
-            try {
-                const response = await fetch(`/api/product/${pid}`);
-                if (!response.ok) throw new Error('Produk tidak ditemukan.');
-                productData = await response.json();
-                renderProduct(productData);
-            } catch (error) {
-                container.innerHTML = `<p class="text-red-400">${error.message}</p>`;
+                    }
+                });
             }
-        }
-        main();
-    });
-  </script>
- </body>
+
+            function renderPage(product) {
+                productData = product; // Simpan data produk utama secara global
+                try { 
+                    variantsData = JSON.parse(product.variants || '[]'); 
+                } catch (e) {
+                    console.error("Gagal parsing varian");
+                    variantsData = [];
+                }
+                
+                const variantsForSale = variantsData.filter(v => v.isForSale);
+                selectedVariant = variantsForSale.length > 0 ? variantsForSale[0] : null;
+
+                let images = [];
+                try { images = JSON.parse(product.gallery_images || '[]'); } catch (e) {}
+                const mainImageUrl = product.main_image || images[0] || '';
+                
+                const thumbnailsHTML = images.map((img, index) => `<div class="aspect-w-1 aspect-h-1 rounded-md overflow-hidden cursor-pointer border-2 ${img === mainImageUrl ? 'border-sky-500' : 'border-transparent'}"><img src="/api/image-proxy?url=${encodeURIComponent(img)}" data-full-url="${img}" class="w-full h-full object-cover thumbnail-img"></div>`).join('');
+
+                const variantButtonsHTML = variantsForSale.length <= 1 ? '' : variantsForSale.map(v => `<button data-vid="${v.vid}" class="variant-btn border-2 rounded-lg px-4 py-2 mr-2 mb-2">${cleanVariantName(v.variantNameEn, product.name)}</button>`).join('');
+
+                container.innerHTML = `
+                    <div class="w-full">
+                        <div class="aspect-w-1 aspect-h-1 bg-slate-800 rounded-lg overflow-hidden mb-4">
+                            <img id="main-image" src="/api/image-proxy?url=${encodeURIComponent(mainImageUrl)}" alt="${product.name}" class="w-full h-full object-contain">
+                        </div>
+                        <div id="thumbnail-gallery" class="grid grid-cols-5 gap-2">${thumbnailsHTML}</div>
+                    </div>
+                    <div class="flex flex-col">
+                        <h1 class="text-2xl font-bold text-white mb-2">${product.name}</h1>
+                        <p id="product-price" class="text-3xl font-light text-sky-400 mb-6">${selectedVariant ? new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(selectedVariant.customSellPrice * 15500) : 'Pilih varian'}</p>
+                        <div id="variant-selector" class="mb-6">
+                           ${variantsForSale.length > 1 ? `<label class="block mb-2 text-sm font-medium">Pilih Varian:</label><div class="flex flex-wrap">${variantButtonsHTML}</div>` : ''}
+                        </div>
+                        <div class="flex items-center gap-4 mb-8">
+                            <button id="add-to-cart-btn" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-6 rounded-lg">Tambah ke Keranjang</button>
+                        </div>
+                        <div>
+                            <h2 class="text-xl font-semibold text-white mb-2 border-b border-slate-700 pb-2">Deskripsi</h2>
+                            <p class="whitespace-pre-wrap text-slate-400">${product.description || 'Tidak ada deskripsi.'}</p>
+                        </div>
+                    </div>
+                `;
+
+                // Pasang event listener setelah HTML ada di halaman
+                document.getElementById('add-to-cart-btn').addEventListener('click', addToCart);
+                
+                const variantSelector = document.getElementById('variant-selector');
+                if(variantSelector) {
+                    variantSelector.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('variant-btn')) {
+                            const newSelectedVariant = variantsData.find(v => v.vid === e.target.dataset.vid);
+                            if (newSelectedVariant) updateDisplayForVariant(newSelectedVariant);
+                        }
+                    });
+                }
+                
+                const thumbnailGallery = document.getElementById('thumbnail-gallery');
+                if(thumbnailGallery) {
+                    thumbnailGallery.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('thumbnail-img')) {
+                            document.getElementById('main-image').src = e.target.src;
+                            document.querySelectorAll('#thumbnail-gallery > div').forEach(div => div.classList.replace('border-sky-500', 'border-transparent'));
+                            e.target.parentElement.classList.replace('border-transparent', 'border-sky-500');
+                        }
+                    });
+                }
+
+                // Inisialisasi tampilan untuk varian pertama
+                if (selectedVariant) {
+                    updateDisplayForVariant(selectedVariant);
+                }
+            }
+            
+            async function main() {
+                updateCartBadge();
+                const urlParams = new URLSearchParams(window.location.search);
+                const pid = urlParams.get('pid');
+                if (!pid) { container.innerHTML = '<p class="text-red-400">Error: Produk tidak valid.</p>'; return; }
+                try {
+                    const response = await fetch(`/api/product/${pid}`);
+                    if (!response.ok) throw new Error('Produk tidak ditemukan.');
+                    const product = await response.json();
+                    renderPage(product);
+                } catch (error) {
+                    container.innerHTML = `<p class="text-red-400">${error.message}</p>`;
+                }
+            }
+            main();
+        });
+    </script>
+</body>
 </html>

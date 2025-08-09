@@ -1,3 +1,4 @@
+const https = require('https'); // Tambahan: untuk paksa IPv4
 const express = require('express');
 const bodyParser = require('body-parser');
 const sqlite3 = require('sqlite3').verbose();
@@ -6,14 +7,21 @@ const fetch = require('node-fetch');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { cariProduk, getProdukDetail } = require('./cj-api.js');
+
+// Impor modul API CJ kita
+const { cariProduk, getProdukDetail } = require('./cj-api.js'); 
 
 const app = express();
 const PORT = 3000;
 
+// --- KONFIGURASI ---
 const TELEGRAM_BOT_TOKEN = '8020172864:AAGSAx6FbPdFCfvbqK33WbJGxBBRAB0V4CE';
 const TELEGRAM_CHAT_ID = '8007864475';
 
+// Agent khusus untuk IPv4
+const agentIPv4 = new https.Agent({ family: 4 });
+
+// --- MIDDLEWARE ---
 app.use(bodyParser.json());
 app.use(express.static('public'));
 app.use(session({
@@ -23,9 +31,11 @@ app.use(session({
   cookie: { maxAge: 24 * 60 * 60 * 1000 }
 }));
 
+// --- SETUP MULTER ---
 const uploadDir = 'public/uploads';
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
+if (!fs.existsSync(uploadDir)){
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
@@ -36,17 +46,33 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
+// --- DATABASE SETUP ---
 const db = new sqlite3.Database('db.sqlite', (err) => {
   if (err) return console.error("Error saat koneksi ke database:", err.message);
   console.log('Connected to SQLite DB');
 });
 
 db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS orders (id INTEGER PRIMARY KEY AUTOINCREMENT, customer_name TEXT, items_summary TEXT, status TEXT DEFAULT 'Menunggu Pembayaran', payment_proof_path TEXT)`);
+    db.run(`
+      CREATE TABLE IF NOT EXISTS orders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, 
+        customer_name TEXT, 
+        customer_phone TEXT, 
+        customer_address TEXT, 
+        customer_city TEXT, 
+        customer_province TEXT, 
+        customer_zip TEXT, 
+        items_summary TEXT, 
+        status TEXT DEFAULT 'Menunggu Pembayaran', 
+        payment_proof_path TEXT, 
+        cj_order_id TEXT
+      )
+    `);
     db.run(`CREATE TABLE IF NOT EXISTS products (pid TEXT PRIMARY KEY, name TEXT, description TEXT, main_image TEXT, gallery_images TEXT, price TEXT, variants TEXT, source_url TEXT, is_published BOOLEAN DEFAULT 0)`);
     db.run(`CREATE TABLE IF NOT EXISTS admin_users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT)`);
 });
 
+// --- MIDDLEWARE KEAMANAN ---
 const requireLogin = (req, res, next) => {
   if (req.session && req.session.loggedIn) {
     next();
@@ -58,12 +84,15 @@ const requireLogin = (req, res, next) => {
   }
 };
 
-// ROUTES
+// --- ROUTES ---
+
+// Halaman Admin (Dilindungi)
 app.get('/admin.html', requireLogin, (req, res) => res.sendFile(path.join(__dirname, 'public', 'admin.html')));
 app.get('/my-products.html', requireLogin, (req, res) => res.sendFile(path.join(__dirname, 'public', 'my-products.html')));
 app.get('/add-product.html', requireLogin, (req, res) => res.sendFile(path.join(__dirname, 'public', 'add-product.html')));
 app.get('/edit-product.html', requireLogin, (req, res) => res.sendFile(path.join(__dirname, 'public', 'edit-product.html')));
 
+// API Auth
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     db.get('SELECT * FROM admin_users WHERE username = ? AND password = ?', [username, password], (err, row) => {
@@ -77,6 +106,7 @@ app.get('/logout', (req, res) => {
     req.session.destroy(() => { res.redirect('/login.html'); });
 });
 
+// API Produk
 app.get('/api/products/search/:keyword', requireLogin, async (req, res) => {
     const { keyword } = req.params;
     const searchResult = await cariProduk(keyword);
@@ -132,16 +162,120 @@ app.post('/api/product/:pid', requireLogin, upload.array('new_images', 10), (req
     );
 });
 
-app.get('/api/products', (req, res) => { db.all('SELECT * FROM products', [], (err, rows) => { if (err) return res.status(500).json({ error: 'Gagal mengambil produk.' }); res.json(rows); }); });
-app.get('/api/product/:pid', (req, res) => { const { pid } = req.params; db.get('SELECT * FROM products WHERE pid = ?', [pid], (err, row) => { if (err) return res.status(500).json({ error: 'Gagal mengambil data.' }); if (!row) return res.status(404).json({ error: 'Produk tidak ditemukan.' }); res.json(row); }); });
-app.post('/api/products/delete/:pid', requireLogin, (req, res) => { const { pid } = req.params; db.run('DELETE FROM products WHERE pid = ?', [pid], (err) => { if (err) return res.status(500).json({ error: 'Gagal menghapus produk.' }); res.status(200).json({ message: 'Produk berhasil dihapus.' }); }); });
-app.get('/api/image-proxy', async (req, res) => { const imageUrl = req.query.url; if (!imageUrl) return res.status(400).send('URL gambar diperlukan.'); try { const response = await fetch(imageUrl); if (!response.ok) throw new Error('Gagal mengambil gambar.'); const contentType = response.headers.get('content-type'); res.setHeader('Content-Type', contentType); response.body.pipe(res); } catch (error) { res.status(500).send('Gagal memuat gambar.'); } });
+app.get('/api/products', (req, res) => {
+    db.all('SELECT * FROM products', [], (err, rows) => {
+        if (err) return res.status(500).json({ error: 'Gagal mengambil produk dari database.' });
+        res.json(rows);
+    });
+});
 
-app.get('/api/orders', requireLogin, (req, res) => { db.all(`SELECT * FROM orders ORDER BY id DESC`, (err, rows) => { if (err) return res.status(500).json({ error: err.message }); res.json(rows); }); });
-app.post('/api/orders', (req, res) => { const { customer_name, item } = req.body; const status = 'Menunggu Pembayaran'; db.run('INSERT INTO orders (customer_name, items_summary, status) VALUES (?, ?, ?)', [customer_name, item, status], function (err) { if (err) return res.status(500).json({ error: err.message }); const orderId = this.lastID; const message = `🛒 Pesanan Baru! (ID: ${orderId})\n\n👤 Nama: ${customer_name}\n📦 Item: ${item}`; const encodedMessage = encodeURIComponent(message); const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodedMessage}`; fetch(url).catch(err => console.error(err)); res.status(201).json({ order_id: orderId }); }); });
-app.post('/api/confirm-payment', upload.single('payment_proof'), (req, res) => { const { order_id } = req.body; const paymentProofFile = req.file; if (!order_id || !paymentProofFile) return res.status(400).json({ error: 'Nomor Pesanan dan bukti transfer wajib diisi.' }); const newStatus = 'Menunggu Konfirmasi'; const filePath = '/' + paymentProofFile.path.replace(/\\/g, '/').replace('public/', ''); db.run('UPDATE orders SET status = ?, payment_proof_path = ? WHERE id = ?', [newStatus, filePath, order_id], function(err) { if (err) return res.status(500).json({ error: 'Gagal update database.' }); if (this.changes === 0) return res.status(404).json({ error: 'Order ID tidak ditemukan.' }); const message = `🔔 Konfirmasi Diterima!\n\nOrder ID: #${order_id}\nSilakan verifikasi pembayaran.`; const encodedMessage = encodeURIComponent(message); const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodedMessage}`; fetch(url).catch(err => console.error(err)); res.status(200).json({ message: 'Konfirmasi berhasil diterima.' }); }); });
-app.post('/api/orders/:id/confirm', requireLogin, (req, res) => { const id = req.params.id; db.run('UPDATE orders SET status = ? WHERE id = ?', ['Diproses', id], (err) => { if (err) return res.status(500).json({ error: err.message }); res.json({ success: true }); }); });
-app.post('/api/orders/:id/reject', requireLogin, (req, res) => { const id = req.params.id; db.run('UPDATE orders SET status = ? WHERE id = ?', ['Ditolak', id], (err) => { if (err) return res.status(500).json({ error: err.message }); res.json({ success: true }); }); });
+app.get('/api/product/:pid', (req, res) => {
+    const { pid } = req.params;
+    db.get('SELECT * FROM products WHERE pid = ?', [pid], (err, row) => {
+        if (err) return res.status(500).json({ error: 'Gagal mengambil data produk.' });
+        if (!row) return res.status(404).json({ error: 'Produk tidak ditemukan.' });
+        res.json(row);
+    });
+});
+
+app.post('/api/products/delete/:pid', requireLogin, (req, res) => {
+    const { pid } = req.params;
+    db.run('DELETE FROM products WHERE pid = ?', [pid], (err) => {
+        if (err) return res.status(500).json({ error: 'Gagal menghapus produk.' });
+        res.status(200).json({ message: 'Produk berhasil dihapus.' });
+    });
+});
+
+app.get('/api/image-proxy', async (req, res) => {
+    const imageUrl = req.query.url;
+    if (!imageUrl) return res.status(400).send('URL gambar diperlukan.');
+    try {
+        const response = await fetch(imageUrl);
+        if (!response.ok) throw new Error('Gagal mengambil gambar dari sumber.');
+        const contentType = response.headers.get('content-type');
+        res.setHeader('Content-Type', contentType);
+        response.body.pipe(res);
+    } catch (error) {
+        res.status(500).send('Gagal memuat gambar.');
+    }
+});
+
+// API Pesanan
+app.get('/api/orders', requireLogin, (req, res) => {
+    db.all(`SELECT * FROM orders ORDER BY id DESC`, (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json(rows);
+    });
+});
+
+app.post('/api/orders', (req, res) => {
+    const { customer_name, phone, address, city, province, zip, cart } = req.body;
+    if (!customer_name || !phone || !address || !cart || cart.length === 0) {
+        return res.status(400).json({ error: 'Data tidak lengkap.' });
+    }
+    const status = 'Menunggu Pembayaran';
+    const itemsSummary = cart.map(item => `${item.name} (Qty: ${item.quantity})`).join(', ');
+    db.run('INSERT INTO orders (customer_name, customer_phone, customer_address, customer_city, customer_province, customer_zip, items_summary, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [customer_name, phone, address, city, province, zip, itemsSummary, status],
+        function (err) {
+            if (err) {
+                console.error("DB Order Insert Error:", err.message);
+                return res.status(500).json({ error: 'Gagal membuat pesanan.' });
+            }
+            const orderId = this.lastID;
+            const message = `🛒 Pesanan Baru! (ID: ${orderId})\n\n👤 Nama: ${customer_name}\n📦 Item: ${itemsSummary}`;
+            const encodedMessage = encodeURIComponent(message);
+            const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodedMessage}`;
+
+            // Pakai IPv4
+            fetch(url, { agent: agentIPv4, timeout: 15000 })
+              .then(r => r.json())
+              .then(d => console.log('Telegram API Response:', d))
+              .catch(err => console.error("Telegram fetch error:", err));
+
+            res.status(201).json({ order_id: orderId });
+        }
+    );
+});
+
+app.post('/api/confirm-payment', upload.single('payment_proof'), (req, res) => {
+    const { order_id } = req.body;
+    const paymentProofFile = req.file;
+    if (!order_id || !paymentProofFile) return res.status(400).json({ error: 'Nomor Pesanan dan bukti transfer wajib diisi.' });
+    const newStatus = 'Menunggu Konfirmasi';
+    const filePath = '/' + paymentProofFile.path.replace(/\\/g, '/').replace('public/', '');
+    db.run('UPDATE orders SET status = ?, payment_proof_path = ? WHERE id = ?', [newStatus, filePath, order_id], function(err) {
+        if (err) return res.status(500).json({ error: 'Gagal update database.' });
+        if (this.changes === 0) return res.status(404).json({ error: 'Order ID tidak ditemukan.' });
+
+        const message = `🔔 Konfirmasi Diterima!\n\nOrder ID: #${order_id}\nSilakan verifikasi pembayaran.`;
+        const encodedMessage = encodeURIComponent(message);
+        const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage?chat_id=${TELEGRAM_CHAT_ID}&text=${encodedMessage}`;
+
+        fetch(url, { agent: agentIPv4, timeout: 15000 })
+          .then(r => r.json())
+          .then(d => console.log('Telegram API Response:', d))
+          .catch(err => console.error("Telegram fetch error:", err));
+
+        res.status(200).json({ message: 'Konfirmasi berhasil diterima.' });
+    });
+});
+
+app.post('/api/orders/:id/confirm', requireLogin, (req, res) => {
+    const id = req.params.id;
+    db.run('UPDATE orders SET status = ? WHERE id = ?', ['Diproses', id], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
+});
+
+app.post('/api/orders/:id/reject', requireLogin, (req, res) => {
+    const id = req.params.id;
+    db.run('UPDATE orders SET status = ? WHERE id = ?', ['Ditolak', id], (err) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({ success: true });
+    });
+});
 
 app.listen(PORT, () => {
   console.log(`AXPFashion API running at http://localhost:${PORT}`);
